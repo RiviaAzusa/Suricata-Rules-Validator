@@ -221,7 +221,7 @@ def get_ssh_manager():
             hostname="10.168.27.239",
             port=7722,
             username="root",
-            private_key_path="/Users/azusa/.ssh/box",
+            private_key_path="box",
         )
 
         # 尝试连接
