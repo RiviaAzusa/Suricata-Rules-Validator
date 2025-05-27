@@ -8,9 +8,8 @@ SSH连接管理器 - 用于Web应用
 import paramiko
 import os
 import threading
-import time
 import socket
-from paramiko import AuthenticationException, SSHException
+from paramiko import AuthenticationException
 
 
 class SSHManager:

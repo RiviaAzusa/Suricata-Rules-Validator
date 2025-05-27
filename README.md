@@ -1,26 +1,45 @@
-# Suricata规则验证器
+# 日志监控和规则编辑系统
 
-一个基于Web的Suricata规则文件编辑和实时监控系统。
+这是一个基于Flask的Web应用，用于实时监控日志文件并在线编辑Suricata规则。
 
 ## 功能特性
 
-- 🔧 **在线编辑**: 通过Web界面直接编辑远程服务器上的Suricata规则文件
-- 💾 **实时保存**: 支持快捷键保存和自动保存功能
-- 🔄 **规则重新加载**: 一键重新加载Suricata规则并验证加载状态
-- 📊 **实时监控**: 同时监控Suricata日志和DTrace输出
-- 🎨 **现代界面**: 基于Bootstrap 5的响应式设计
-- ⚡ **实时通信**: 使用WebSocket实现实时日志推送
+### 日志监控
+- 同时监控 `dtrace_logs.log` 和 `suricata_logs.log` 两个日志文件
+- 实时显示新增的日志内容
+- 支持按日志类型过滤显示（全部/Suricata/DTrace）
+- 提供清空当前页面日志的功能
+- 使用WebSocket实现实时推送
 
-## 系统架构
+### 规则编辑
+- 在线读取远程Suricata规则文件 (`/data/su7/rules/suricata.rules`)
+- 在线编辑规则内容
+- 保存规则到远程服务器
+- 执行规则重载命令 (`/data/su7/bin/suricatasc -c reload-rules`)
+- 自动检测重载结果（期望返回 `{"message": "done", "return": "OK"}`)
+
+### 系统状态
+- SSH连接状态监控
+- WebSocket连接状态监控
+- 实时状态指示器
+
+## 项目结构
 
 ```
-┌─────────────────┐    WebSocket    ┌─────────────────┐    SSH    ┌─────────────────┐
-│   Web Browser   │ ←──────────────→ │  Flask Server   │ ←────────→ │  Remote Server  │
-│                 │                 │                 │           │                 │
-│ - 规则编辑器     │                 │ - API接口       │           │ - Suricata      │
-│ - 实时日志显示   │                 │ - SSH管理       │           │ - DTrace        │
-│ - 状态监控      │                 │ - 日志转发      │           │ - 规则文件      │
-└─────────────────┘                 └─────────────────┘           └─────────────────┘
+Logs-Watcher/
+├── src/
+│   ├── app.py              # Flask后端应用
+│   ├── log_collector.py    # 日志收集器
+│   ├── ssh_manager.py      # SSH连接管理器
+│   ├── log_watcher.py      # 原有的日志监控（FastAPI版本）
+│   └── static/
+│       └── index.html      # 前端页面
+├── logs/                   # 日志文件目录
+│   ├── dtrace_logs.log     # DTrace日志
+│   └── suricata_logs.log   # Suricata日志
+├── requirements.txt        # Python依赖
+├── start_web_app.py       # Web应用启动脚本
+└── README.md              # 项目说明
 ```
 
 ## 安装和运行
@@ -33,149 +52,96 @@ pip install -r requirements.txt
 
 ### 2. 配置SSH连接
 
-编辑 `ssh_manager.py` 文件中的连接参数：
+确保 `src/ssh_manager.py` 中的SSH连接配置正确：
+- 主机地址
+- 端口
+- 用户名
+- 私钥路径
 
-```python
-ssh_manager = SSHManager(
-    hostname="your-server-ip",
-    port=22,
-    username="your-username",
-    private_key_path="/path/to/your/private/key",
-)
-```
-
-### 3. 设置环境变量（可选）
+### 3. 启动应用
 
 ```bash
-export KEY_PASSWORD="your-private-key-password"
-export SSH_PASSWORD="your-ssh-password"
+python start_web_app.py
 ```
 
-### 4. 运行应用
+### 4. 访问Web界面
 
-```bash
-python app.py
-```
-
-应用将在 `http://localhost:5000` 启动。
+打开浏览器访问：http://localhost:5000
 
 ## 使用说明
 
-### 规则编辑
-
-1. 点击"加载规则"按钮从远程服务器加载当前规则文件
-2. 在编辑器中修改规则内容
-3. 使用 `Ctrl+S` (Windows/Linux) 或 `Cmd+S` (Mac) 保存规则
-4. 点击"重新加载"按钮让Suricata重新加载规则
-
 ### 日志监控
+1. 启动应用后，左侧面板会自动显示实时日志
+2. 使用顶部的过滤按钮选择要显示的日志类型
+3. 点击"清空日志"按钮可以清空当前显示的日志
 
-- 系统会自动启动两种监控：
-  - **Suricata日志**: 监控 `/var/log/suricata/suricata.log` 中包含"当前流"的日志
-  - **DTrace监控**: 监控DTrace工具的输出
-- 日志会实时显示在右侧面板
-- 支持自动滚动和手动清空日志
-- 显示每种日志类型的计数
+### 规则编辑
+1. 点击"加载规则"按钮从远程服务器加载当前规则文件
+2. 在文本编辑器中修改规则内容
+3. 点击"保存规则"按钮将修改保存到远程服务器
+4. 点击"重载规则"按钮执行规则重载命令
 
-### 状态指示
+### 状态监控
+- 右上角显示SSH和WebSocket的连接状态
+- 绿色圆点表示连接正常，红色圆点表示连接断开
 
-- **连接状态**: 显示与服务器的连接状态
-- **监控状态**: 显示日志监控的运行状态
-- **操作反馈**: 所有操作都有相应的成功/失败提示
+## 技术架构
+
+### 后端 (Flask)
+- **Flask**: Web框架
+- **Flask-SocketIO**: WebSocket支持，实现实时日志推送
+- **Watchdog**: 文件系统监控，检测日志文件变化
+- **Paramiko**: SSH客户端，用于远程文件操作和命令执行
+
+### 前端
+- **原生JavaScript**: 无框架依赖
+- **Socket.IO**: WebSocket客户端
+- **响应式设计**: 适配不同屏幕尺寸
+
+### 特性
+- **前后端分离**: RESTful API + WebSocket
+- **实时监控**: 文件变化实时推送到前端
+- **错误处理**: 完善的错误处理和用户反馈
+- **状态管理**: 连接状态实时监控
 
 ## API接口
 
-### 获取规则文件
-```
-GET /api/rules
-```
+### 日志相关
+- `GET /api/logs/history` - 获取历史日志
+- `POST /api/logs/clear` - 清空日志文件
 
-### 保存规则文件
-```
-POST /api/rules
-Content-Type: application/json
+### 规则相关
+- `GET /api/rules/read` - 读取远程规则文件
+- `POST /api/rules/save` - 保存规则文件
+- `POST /api/rules/reload` - 重载规则
 
-{
-    "content": "规则文件内容"
-}
-```
+### 系统状态
+- `GET /api/ssh/status` - 获取SSH连接状态
 
-### 重新加载规则
-```
-POST /api/reload-rules
-```
-
-## WebSocket事件
-
-### 客户端监听事件
-
-- `connect`: 连接成功
-- `disconnect`: 连接断开
-- `status`: 状态更新
-- `suricata_log`: Suricata日志
-- `dtrace_log`: DTrace日志
-
-### 客户端发送事件
-
-- `start_monitoring`: 启动监控
-- `stop_monitoring`: 停止监控
-
-## 技术栈
-
-### 后端
-- **Flask**: Web框架
-- **Flask-SocketIO**: WebSocket支持
-- **Paramiko**: SSH连接管理
-- **Threading**: 多线程日志监控
-
-### 前端
-- **Bootstrap 5**: UI框架
-- **CodeMirror**: 代码编辑器
-- **Socket.IO**: 实时通信
-- **Font Awesome**: 图标库
-
-## 文件结构
-
-```
-Suricata-Rules-Validator/
-├── app.py                 # Flask应用主文件
-├── ssh_manager.py         # SSH连接管理器
-├── test_tail_fix.py       # 测试脚本
-├── requirements.txt       # Python依赖
-├── README.md             # 项目说明
-├── templates/
-│   └── index.html        # 主页模板
-└── static/
-    ├── css/
-    │   └── style.css     # 样式文件
-    └── js/
-        └── app.js        # 前端JavaScript
-```
+### WebSocket事件
+- `new_log` - 新日志推送
+- `connect/disconnect` - 连接状态
 
 ## 注意事项
 
-1. 确保SSH私钥文件权限正确 (600)
-2. 确保目标服务器上的Suricata和DTrace工具可用
-3. 监控功能需要相应的文件和命令权限
-4. 建议在生产环境中使用HTTPS和适当的身份验证
+1. 确保SSH连接配置正确，否则规则编辑功能无法使用
+2. 日志文件路径需要根据实际情况调整
+3. 远程规则文件路径和重载命令需要根据实际环境配置
+4. 建议在生产环境中使用HTTPS和适当的安全措施
 
 ## 故障排除
 
 ### SSH连接失败
-- 检查服务器地址、端口和用户名
-- 验证私钥文件路径和权限
-- 确认服务器SSH服务正常运行
+- 检查网络连接
+- 验证SSH配置（主机、端口、用户名、私钥）
+- 确保远程服务器SSH服务正常
 
-### 规则重新加载失败
-- 检查Suricata配置文件语法
-- 验证suricatasc命令路径
-- 查看Suricata服务状态
+### 日志不显示
+- 检查日志文件是否存在
+- 确认日志收集器是否正常运行
+- 查看控制台错误信息
 
-### 日志监控无输出
-- 确认日志文件路径存在
-- 检查文件读取权限
-- 验证grep过滤条件
-
-## 许可证
-
-MIT License 
+### 规则编辑失败
+- 确认SSH连接正常
+- 检查远程文件路径和权限
+- 验证重载命令是否正确 
